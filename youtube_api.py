@@ -8,7 +8,7 @@ from googleapiclient.errors import HttpError
 from google_auth_oauthlib.flow import InstalledAppFlow
 from google.auth.transport.requests import Request
 
-CLIENT_SECRET_FILE = "client_secret.json"
+CLIENT_SECRET_FILE = "api_key/client_secret.json"
 
 SCOPES = ['https://www.googleapis.com/auth/youtube.force-ssl']
 API_SERVICE_NAME = 'youtube'
@@ -17,8 +17,8 @@ API_VERSION = 'v3'
 def get_autenticated_service():
     credentials = None
     # if file exists
-    if os.path.exists('token.pickle'):
-        with open('token.pickle', 'rb') as token:
+    if os.path.exists('api_key/token.pickle'):
+        with open('api_key/token.pickle', 'rb') as token:
             credentials = pickle.load(token)
     # Else if it is invalid or does not exist
     if not credentials or not credentials.valid:
@@ -29,17 +29,16 @@ def get_autenticated_service():
             credentials = flow.run_console()
     
         # save the credentials
-        with open('token.pickle', 'wb') as token:
+        with open('api_key/token.pickle', 'wb') as token:
             pickle.dump(credentials, token)
 
     return build(API_SERVICE_NAME, API_VERSION, credentials=credentials)
 
-def get_videos(service, **kwargs):
+def get_videos(service, max_pages, **kwargs):
     final_results = []
     results = service.search().list(**kwargs).execute()
     
     i = 0
-    max_pages = 3
     while results and i<max_pages:
         final_results.extend(results['items'])
 
@@ -52,8 +51,8 @@ def get_videos(service, **kwargs):
     
     return final_results
 
-def extract_comments_by_video_keyword(service, **kwargs):
-    results = get_videos(service, **kwargs)
+def extract_comments_by_video_keyword(service, max_pages, **kwargs):
+    results = get_videos(service, max_pages, **kwargs)
     final_results = [] 
     for item in results:
         title = item['snippet']['title']
@@ -84,6 +83,7 @@ if __name__=='__main__':
     os.environ['OAUTHLIB_INSECURE_TRANSPORT'] = '1'
     service = get_autenticated_service()
     keyword = input('Enter a keyword: ')
-    all_comments = extract_comments_by_video_keyword(service, q=keyword, part='id,snippet', eventType='completed', type='video')
+    max_pages = int(input('Enter max_pages: '))
+    all_comments = extract_comments_by_video_keyword(service, max_pages, q=keyword, part='id,snippet', eventType='completed', type='video')
     data = pd.DataFrame(all_comments)
-    data.to_csv(f'{keyword}_comments.csv')
+    data.to_csv(f'../data/{keyword}_comments.csv')
